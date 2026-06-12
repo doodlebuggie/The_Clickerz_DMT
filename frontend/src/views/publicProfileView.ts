@@ -8,8 +8,13 @@ function initials(name: string): string {
     .join('');
 }
 
-function formatAmount(tx: SharedTransaction): string {
-  const val    = tx.debitAmount ?? tx.receiveAmount ?? '0';
+function direction(tx: SharedTransaction, otherWallet: string): 'sent' | 'received' {
+  return tx.receiverWalletAddress === otherWallet ? 'sent' : 'received';
+}
+
+function formatAmount(tx: SharedTransaction, dir: 'sent' | 'received'): string {
+  const val    = dir === 'sent' ? (tx.debitAmount ?? tx.receiveAmount ?? '0')
+                                : (tx.receiveAmount ?? tx.debitAmount ?? '0');
   const scale  = tx.assetScale ?? 2;
   const amount = (Number(val) / Math.pow(10, scale)).toFixed(scale);
   return `${amount} ${tx.assetCode}`;
@@ -53,20 +58,27 @@ export async function renderPublicProfileView(container: HTMLElement, userId: st
 
   const walletDisplay = user.walletAddress ? formatPointer(user.walletAddress) : 'No wallet set';
 
-  const txRows = sharedTransactions.map(tx => `
-    <tr>
-      <td class="history-date-cell">${formatDate(tx.createdAt)}</td>
-      <td class="history-amount-cell">${formatAmount(tx)}</td>
-      <td><span class="status-badge status-${tx.status.toLowerCase()}">${formatStatus(tx.status)}</span></td>
-    </tr>
-  `).join('');
+  const txRows = sharedTransactions.map(tx => {
+    const dir = direction(tx, user.walletAddress ?? '');
+    const dirLabel = dir === 'sent'
+      ? `<span class="dir-badge dir-sent">You &#8594; ${user.displayName}</span>`
+      : `<span class="dir-badge dir-received">${user.displayName} &#8594; You</span>`;
+    return `
+      <tr>
+        <td class="history-date-cell">${formatDate(tx.createdAt)}</td>
+        <td>${dirLabel}</td>
+        <td class="history-amount-cell">${formatAmount(tx, dir)}</td>
+        <td><span class="status-badge status-${tx.status.toLowerCase()}">${formatStatus(tx.status)}</span></td>
+      </tr>
+    `;
+  }).join('');
 
   const txSection = sharedTransactions.length === 0
     ? `<p class="muted" style="padding: 0.5rem 0;">No shared transactions yet.</p>`
     : `<div class="history-table-wrap">
         <table class="history-table">
           <thead>
-            <tr><th>Date</th><th>Amount</th><th>Status</th></tr>
+            <tr><th>Date</th><th>Direction</th><th>Amount</th><th>Status</th></tr>
           </thead>
           <tbody>${txRows}</tbody>
         </table>

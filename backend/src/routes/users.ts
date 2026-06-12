@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { users, transactions } from '../db/schema';
-import { like, ne, and, eq, desc } from 'drizzle-orm';
+import { like, ne, and, or, eq, desc } from 'drizzle-orm';
 import { requireAuth } from '../middleware/requireAuth';
 
 export const usersRouter = Router();
@@ -38,8 +38,15 @@ usersRouter.get('/:id', requireAuth, async (req, res, next) => {
 
     if (!profile) return res.status(404).json({ error: 'User not found' });
 
-    const wallet = profile.walletAddress;
-    const sharedTransactions = wallet
+    const [currentUser] = await db
+      .select({ walletAddress: users.walletAddress })
+      .from(users)
+      .where(eq(users.id, req.user!.id));
+
+    const otherWallet = profile.walletAddress;
+    const myWallet = currentUser?.walletAddress;
+
+    const sharedTransactions = otherWallet && myWallet
       ? await db
           .select({
             id:                    transactions.id,
@@ -56,9 +63,12 @@ usersRouter.get('/:id', requireAuth, async (req, res, next) => {
             createdAt:             transactions.createdAt,
           })
           .from(transactions)
-          .where(and(eq(transactions.userId, req.user!.id), eq(transactions.receiverWalletAddress, wallet)))
+          .where(or(
+            and(eq(transactions.userId, req.user!.id),  eq(transactions.receiverWalletAddress, otherWallet)),
+            and(eq(transactions.userId, profile.id),    eq(transactions.receiverWalletAddress, myWallet)),
+          ))
           .orderBy(desc(transactions.createdAt))
-          .limit(10)
+          .limit(20)
           .all()
       : [];
 
