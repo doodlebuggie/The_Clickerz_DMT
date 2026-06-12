@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    // CommonJS + classic resolution: @libsql/client only publishes ESM types
+    // under the newer Node16 resolution, which breaks `npm run build`.
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,

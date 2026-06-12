@@ -192,13 +192,17 @@ remitRouter.post('/consent', requireAuth, async (req, res, next) => {
     }
 
     const [tx] = await db.select().from(transactions).where(eq(transactions.id, transactionId));
-    if (!tx)                     return res.status(404).json({ error: 'Transaction not found' });
+    // 404 for both missing and foreign transactions, so ids can't be probed
+    if (!tx || tx.userId !== req.user!.id) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
     if (tx.status !== 'PENDING') return res.status(400).json({ error: `Transaction is ${tx.status}, expected PENDING` });
 
     const client        = await getClient();
     const sendingWallet = await client.walletAddress.get({ url: tx.senderWalletAddress });
 
-    // The nonce is stored alongside the continuation details so /api/callback can verify the GNAP hash
+    // The nonce is required by the GNAP spec for the interact.finish hash. We store it
+    // with the continuation details; verifying the callback hash is left as an exercise.
     const nonce       = crypto.randomUUID();
     const callbackUrl = `${config.backendUrl}/api/callback?transactionId=${transactionId}`;
 
@@ -260,12 +264,34 @@ remitRouter.post('/consent', requireAuth, async (req, res, next) => {
 //
 // Returns the current state of a transaction.
 // Polled by the frontend status view every 2 s.
+//
+// Deliberately unauthenticated: the browser lands here straight from the wallet's
+// consent redirect, and the random UUID acts as a capability. Because of that we
+// only return display fields — never the GNAP continuation secrets.
 // ─────────────────────────────────────────────────────────────────────────────
 remitRouter.get('/status/:id', async (req, res, next) => {
   try {
     const [tx] = await db
-      .select()
+      .select({
+        id:                    transactions.id,
+        status:                transactions.status,
+        paymentType:           transactions.paymentType,
+        senderWalletAddress:   transactions.senderWalletAddress,
+        receiverWalletAddress: transactions.receiverWalletAddress,
+        debitAmount:           transactions.debitAmount,
+        receiveAmount:         transactions.receiveAmount,
+        assetCode:             transactions.assetCode,
+        assetScale:            transactions.assetScale,
+        receiveAssetCode:      transactions.receiveAssetCode,
+        receiveAssetScale:     transactions.receiveAssetScale,
+        outgoingPaymentUrl:    transactions.outgoingPaymentUrl,
+        errorMessage:          transactions.errorMessage,
+        createdAt:             transactions.createdAt,
+        recipientName:         users.displayName,
+        recipientId:           users.id,
+      })
       .from(transactions)
+      .leftJoin(users, eq(users.walletAddress, transactions.receiverWalletAddress))
       .where(eq(transactions.id, req.params.id));
 
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });

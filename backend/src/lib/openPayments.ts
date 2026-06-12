@@ -1,4 +1,9 @@
-import { createAuthenticatedClient, isPendingGrant } from '@interledger/open-payments';
+import {
+  createAuthenticatedClient,
+  isPendingGrant,
+  isFinalizedGrantWithAccessToken,
+} from '@interledger/open-payments';
+import type { Grant, GrantContinuation, GrantWithAccessToken, PendingGrant } from '@interledger/open-payments';
 import { config } from '../config';
 
 // Singleton — one authenticated client per process lifetime.
@@ -21,15 +26,11 @@ export function normaliseWalletAddress(addr: string): string {
   return addr.startsWith('$') ? `https://${addr.slice(1)}` : addr;
 }
 
-// Type guard for non-interactive (immediately finalised) grants.
-// Counterpart to isPendingGrant from the SDK.
+// Type guard for grants that are finalised and carry a usable access token.
+// Composes the SDK's own guards so it works for both fresh grant requests
+// (PendingGrant | Grant) and grant continuations (GrantContinuation | Grant).
 export function isFinalizedGrant(
-  grant: unknown
-): grant is { access_token: { value: string } } {
-  const g = grant as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  return (
-    typeof g?.access_token?.value === 'string' &&
-    (g.access_token.value as string).length > 0 &&
-    !isPendingGrant(g)
-  );
+  grant: PendingGrant | GrantContinuation | Grant
+): grant is GrantWithAccessToken {
+  return !isPendingGrant(grant) && isFinalizedGrantWithAccessToken(grant);
 }

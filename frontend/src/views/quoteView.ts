@@ -1,4 +1,5 @@
 import { api, QuoteResponse, User, UserSearchResult, WalletInfo } from '../api';
+import { escapeHtml } from '../escape';
 
 function initials(name: string): string {
   return name
@@ -19,7 +20,7 @@ export function renderQuoteView(
     <div class="card send-card">
       <div class="send-header">
         <h2 class="send-title">Send Money</h2>
-        <p class="send-subtitle">Fast, fair, and open; live FX rates, no hidden fees.</p>
+        <p class="send-subtitle">Live exchange rates, no hidden fees.</p>
       </div>
 
       ${noWallet ? `
@@ -32,7 +33,7 @@ export function renderQuoteView(
       <form id="quote-form" class="send-form" novalidate>
         <div class="field">
           <label>Your Payment Pointer</label>
-          <input type="text" class="input" value="${user.walletAddress ?? ''}" readonly disabled />
+          <input type="text" class="input" value="${escapeHtml(user.walletAddress ?? '')}" readonly disabled />
         </div>
 
         <hr class="divider" />
@@ -123,16 +124,16 @@ export function renderQuoteView(
 
   function renderRecipientCard(result: UserSearchResult, currency: string | null): void {
     const avatarEl = result.avatar
-      ? `<img class="recipient-avatar" src="${result.avatar}" alt="${result.displayName}" />`
-      : `<div class="recipient-avatar-placeholder">${initials(result.displayName)}</div>`;
+      ? `<img class="recipient-avatar" src="${escapeHtml(result.avatar)}" alt="${escapeHtml(result.displayName)}" />`
+      : `<div class="recipient-avatar-placeholder">${escapeHtml(initials(result.displayName))}</div>`;
 
     receiverDisplay.innerHTML = `
       ${avatarEl}
       <div class="recipient-info">
-        <span class="recipient-name">${result.displayName}</span>
-        <span class="recipient-wallet">${result.walletAddress ?? 'no wallet'}</span>
+        <span class="recipient-name">${escapeHtml(result.displayName)}</span>
+        <span class="recipient-wallet">${escapeHtml(result.walletAddress ?? 'no wallet')}</span>
       </div>
-      <span class="currency-tag" id="recipient-currency-tag">${currency ?? '…'}</span>
+      <span class="currency-tag" id="recipient-currency-tag">${escapeHtml(currency ?? '…')}</span>
       <a class="recipient-profile-link" href="#/user/${result.id}" title="View profile">Profile</a>
     `;
     receiverDisplay.hidden = false;
@@ -185,7 +186,7 @@ export function renderQuoteView(
           const li = document.createElement('li');
           li.className = 'search-result-item';
           li.innerHTML = `
-            <span class="search-result-main">${r.displayName}${r.walletAddress ? ` — ${r.walletAddress}` : ' (no wallet)'}</span>
+            <span class="search-result-main">${escapeHtml(r.displayName)}${r.walletAddress ? ` — ${escapeHtml(r.walletAddress)}` : ' (no wallet)'}</span>
             <a class="search-result-profile" href="#/user/${r.id}">Profile</a>
           `;
           li.querySelector('.search-result-main')!.addEventListener('click', () => selectUser(r));
@@ -205,9 +206,16 @@ export function renderQuoteView(
   searchBtn.addEventListener('click', doSearch);
   searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
 
-  document.addEventListener('click', (e) => {
+  // Close the dropdown when clicking outside. The listener removes itself once
+  // this view has been replaced, so re-renders don't pile up stale handlers.
+  function onDocumentClick(e: MouseEvent): void {
+    if (!document.body.contains(resultsList)) {
+      document.removeEventListener('click', onDocumentClick);
+      return;
+    }
     if (!container.contains(e.target as Node)) resultsList.hidden = true;
-  });
+  }
+  document.addEventListener('click', onDocumentClick);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -23,3 +23,7 @@ export const config = {
 
   jwtSecret: process.env.JWT_SECRET ?? 'changeme',
 };
+
+if (config.jwtSecret === 'changeme') {
+  console.warn('[config] JWT_SECRET is the default placeholder — set a long random value in backend/.env before deploying.');
+}

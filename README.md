@@ -29,7 +29,7 @@ You can obtain test wallet credentials from the [Interledger Test Wallet](https:
    address can be the sending one.
 2. Generate a **key pair** for your account (**Settings → Developer Keys → Add Key**). You'll get a **Key ID** and a **private key
    file** (e.g. `private.key`). Keep the private key on the machine that runs the runner.
-3. The single-script reference this UI mirrors is [`example.js`](example.js), useful if you
+3. The single-script reference this UI mirrors is [`example.ts`](example.ts), useful if you
    want to see the same flow run headless in a terminal.
 
 ### 3. Configure
@@ -91,10 +91,20 @@ Open [http://localhost:5173](http://localhost:5173).
 ```
 
 **Summary:**
+
 - `POST /api/remit/quote` — steps 1–5: resolve wallets, create incoming payment + quote
 - `POST /api/remit/consent` — step 6: request interactive outgoing grant, get interact URL
 - `GET /api/callback` — steps 7–8: continue grant, create outgoing payment
 - `GET /api/remit/status/:id` — poll current transaction state
+- `GET /api/remit/history` — the current user's sent payments
+- `GET /api/remit/wallet-info?url=…` — resolve a wallet's currency before quoting
+
+**Accounts & users** (all remit routes except `/status/:id` require a `Bearer` token):
+
+- `POST /api/auth/signup`, `POST /api/auth/login` — issue a 7-day JWT
+- `GET /api/auth/me`, `PATCH /api/auth/me` — read / update the profile (display name, email, password, wallet address, avatar)
+- `GET /api/users/search?q=…` — find recipients by display name
+- `GET /api/users/:id` — public profile + transactions shared with the current user
 
 ---
 
@@ -111,25 +121,35 @@ OpenRemit/
 │   │   ├── lib/
 │   │   │   └── openPayments.ts← SDK client singleton (start here for OP changes)
 │   │   ├── db/
-│   │   │   ├── schema.ts      ← Database tables (add fields here)
-│   │   │   └── index.ts       ← Drizzle + better-sqlite3 instance
+│   │   │   ├── schema.ts      ← Database tables: users + transactions
+│   │   │   └── index.ts       ← Drizzle + libsql (SQLite file) instance
 │   │   ├── routes/
-│   │   │   ├── remit.ts       ← quote / consent / status routes
-│   │   │   └── callback.ts    ← GNAP redirect handler
+│   │   │   ├── remit.ts       ← wallet-info / quote / consent / status / history
+│   │   │   ├── callback.ts    ← GNAP redirect handler
+│   │   │   ├── auth.ts        ← signup / login / profile (JWT)
+│   │   │   └── users.ts       ← user search + public profiles
 │   │   └── middleware/
+│   │       ├── requireAuth.ts ← Bearer-token guard, sets req.user
 │   │       └── errorHandler.ts
 │   └── drizzle.config.ts
 │
 └── frontend/
-    ├── index.html
+    ├── index.html             ← Header + nav shell; views render into #view
     └── src/
-        ├── main.ts            ← View state machine (boot here)
-        ├── api.ts             ← All fetch calls to the backend
+        ├── main.ts            ← Hash router (#/login, #/remit, …) — boot here
+        ├── api.ts             ← Typed fetch wrappers for every backend route
+        ├── auth.ts            ← JWT storage helpers (localStorage)
+        ├── escape.ts          ← escapeHtml() — use for anything user-entered
         ├── styles.css         ← Edit :root vars to rebrand
         └── views/
-            ├── quoteView.ts   ← Step 1: wallet addresses + amount form
-            ├── consentView.ts ← Step 2: confirm quote, trigger auth redirect
-            └── statusView.ts  ← Step 3: poll & display result
+            ├── homeView.ts          ← Landing page (public + logged-in)
+            ├── loginView.ts / signupView.ts
+            ├── profileView.ts       ← Edit profile, wallet address, avatar
+            ├── publicProfileView.ts ← Other users + shared transactions
+            ├── quoteView.ts         ← Step 1: pick recipient + amount
+            ├── consentView.ts       ← Step 2: confirm quote, redirect to wallet
+            ├── statusView.ts        ← Step 3: poll & display result
+            └── historyView.ts       ← Past payments table
 ```
 
 ---
@@ -164,11 +184,13 @@ const final = await client.grant.continue({ url: pending.continue.uri, accessTok
 await client.outgoingPayment.create({ url: sendingWallet.resourceServer, accessToken: final.access_token.value }, { walletAddress: sendingWallet.id, quoteId: quote.id });
 ```
 
-**Database:** Single `transactions` table in `backend/src/db/schema.ts`. Statuses: `PENDING → AWAITING_GRANT → COMPLETED | FAILED`. The `grantContinueUri`, `grantContinueToken`, and `grantInteractNonce` columns persist the GNAP continuation details between the `/consent` and `/callback` requests.
+**Database:** Two tables in `backend/src/db/schema.ts`: `users` (JWT auth via bcrypt password hash, optional wallet address + avatar) and `transactions`. Transaction statuses: `PENDING → AWAITING_GRANT → COMPLETED | FAILED`. The `grantContinueUri`, `grantContinueToken`, and `grantInteractNonce` columns persist the GNAP continuation details between the `/consent` and `/callback` requests.
 
-**Frontend state machine:** `main.ts` switches between three view containers (`view-quote`, `view-consent`, `view-status`) using `hidden` attribute. After GNAP redirect the backend sends the browser to `FRONTEND_URL?status=...&id=<uuid>` — `main.ts` detects the `id` param and goes directly to the status view.
+**Auth:** `POST /api/auth/signup` / `login` return `{ token, user }`. The frontend stores the JWT in localStorage (`frontend/src/auth.ts`) and sends it as a `Bearer` header (`frontend/src/api.ts`). Protected routes use the `requireAuth` middleware, which sets `req.user`.
 
-**To add a new API route:** add a handler in `backend/src/routes/remit.ts`, wire it in `backend/src/index.ts`.
+**Frontend routing:** `main.ts` is a hash router — `#/login`, `#/remit`, `#/history`, `#/profile`, `#/user/:id` — that renders one view at a time into `#view`. Each view module exports a single `render…View(container, …)` function that sets `container.innerHTML` and wires events. User-entered values must be passed through `escapeHtml()` (`frontend/src/escape.ts`) before interpolation. After the GNAP redirect the backend sends the browser to `FRONTEND_URL?status=...&id=<uuid>` — `main.ts` detects the `id` param and goes directly to the status view.
+
+**To add a new API route:** add a handler in `backend/src/routes/`, wire it in `backend/src/index.ts`, and add a typed wrapper in `frontend/src/api.ts`.
 **To add a DB field:** edit `backend/src/db/schema.ts`, run `npm run db:push`.
 **To change the UI:** edit `frontend/src/views/*.ts` — `api.ts` types stay stable.
 
@@ -186,11 +208,11 @@ await client.outgoingPayment.create({ url: sendingWallet.resourceServer, accessT
 
 ## Extending the Template
 
-### Add user accounts
-1. Add a `users` table to `backend/src/db/schema.ts`
-2. Add a `userId` foreign key to `transactions`
-3. Add `POST /api/auth/register` and `POST /api/auth/login` routes
-4. Run `npm run db:push`
+### Add a contacts / favourites list
+
+1. Add a `contacts` table to `backend/src/db/schema.ts` (`userId`, `contactUserId`)
+2. Add `GET/POST /api/users/contacts` routes guarded by `requireAuth`
+3. Run `npm run db:push`, then surface the list in `quoteView.ts` next to search
 
 ### Add recurring payments
 In `POST /api/remit/consent`, add an `interval` to the outgoing grant limits:

@@ -1,5 +1,6 @@
 import { api, User } from '../api';
 import { clearToken } from '../auth';
+import { escapeHtml } from '../escape';
 
 export async function renderProfileView(container: HTMLElement): Promise<void> {
   container.innerHTML = `<div class="card"><p class="muted">Loading profile…</p></div>`;
@@ -18,34 +19,34 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
       <div class="profile-header">
         <div class="avatar-wrap">
           <img id="avatar-preview" class="profile-avatar"
-            src="${user.avatar ?? ''}"
+            src="${escapeHtml(user.avatar ?? '')}"
             alt="avatar"
             style="${user.avatar ? '' : 'display:none'}"
           />
           <div id="avatar-placeholder" class="avatar-placeholder" style="${user.avatar ? 'display:none' : ''}">
-            ${user.displayName.charAt(0).toUpperCase()}
+            ${escapeHtml(user.displayName.charAt(0).toUpperCase())}
           </div>
         </div>
         <div>
-          <h2 id="profile-name-display">${user.displayName}</h2>
-          <span class="muted">${user.email}</span>
+          <h2 id="profile-name-display">${escapeHtml(user.displayName)}</h2>
+          <span class="muted">${escapeHtml(user.email)}</span>
         </div>
       </div>
 
       <form id="profile-form" novalidate>
         <div class="field">
           <label for="p-name">Display name</label>
-          <input id="p-name" name="displayName" type="text" class="input" value="${user.displayName}" />
+          <input id="p-name" name="displayName" type="text" class="input" value="${escapeHtml(user.displayName)}" />
         </div>
         <div class="field">
           <label for="p-email">Email</label>
-          <input id="p-email" name="email" type="email" class="input" value="${user.email}" />
+          <input id="p-email" name="email" type="email" class="input" value="${escapeHtml(user.email)}" />
         </div>
         <div class="field">
           <label for="p-wallet">Wallet address</label>
           <input id="p-wallet" name="walletAddress" type="text" class="input"
             placeholder="$ilp.interledger-test.dev/your-handle"
-            value="${user.walletAddress ?? ''}" />
+            value="${escapeHtml(user.walletAddress ?? '')}" />
         </div>
         <div class="field">
           <label for="p-password">New password <span class="muted">(leave blank to keep current)</span></label>
@@ -62,7 +63,7 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
 
       <hr class="divider" />
 
-      <button id="logout-btn" class="btn btn-danger">Log out</button>
+      <button id="logout-btn" class="btn-logout">Log out</button>
     </div>
   `;
 

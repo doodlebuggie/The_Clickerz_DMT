@@ -93,7 +93,8 @@ async function route(): Promise<void> {
     return;
   }
 
-  // Fetch user once per session (cache until logout)
+  // Fetch the user for this navigation. The cache is cleared on every
+  // hashchange (see the listener below) so profile edits show up immediately.
   if (!cachedUser) {
     try {
       cachedUser = await api.auth.me();

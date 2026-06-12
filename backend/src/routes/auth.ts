@@ -121,7 +121,15 @@ authRouter.patch('/me', requireAuth, async (req, res, next) => {
 
     const updates: Partial<typeof users.$inferInsert> = {};
     if (displayName?.trim())  updates.displayName  = displayName.trim();
-    if (email?.trim())        updates.email        = email.toLowerCase();
+    if (email?.trim()) {
+      const newEmail = email.trim().toLowerCase();
+      const taken = await db.select({ id: users.id }).from(users).where(eq(users.email, newEmail)).get();
+      if (taken && taken.id !== req.user!.id) {
+        res.status(409).json({ error: 'Email already registered' });
+        return;
+      }
+      updates.email = newEmail;
+    }
     if (walletAddress !== undefined) {
       const trimmed = walletAddress.trim();
       updates.walletAddress = trimmed ? normaliseWalletAddress(trimmed) : null;

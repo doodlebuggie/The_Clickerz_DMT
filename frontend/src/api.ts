@@ -37,14 +37,12 @@ export interface Transaction {
   receiverWalletAddress: string;
   debitAmount:           string | null;
   receiveAmount:         string | null;
-  // Legacy single-currency field; prefer the per-amount fields below when present
+  // Sender-side (debit) currency
   assetCode:             string;
   assetScale:            number;
-  // Per-amount asset info — sender and receiver may use different currencies
-  debitAssetCode?:       string;
-  debitAssetScale?:      number;
-  receiveAssetCode?:     string;
-  receiveAssetScale?:    number;
+  // Receiver-side currency — may differ when the payment crosses currencies
+  receiveAssetCode:      string | null;
+  receiveAssetScale:     number | null;
   outgoingPaymentUrl:    string | null;
   errorMessage:          string | null;
   createdAt:             string;

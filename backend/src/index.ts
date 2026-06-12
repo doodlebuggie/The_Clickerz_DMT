@@ -10,7 +10,8 @@ import { errorHandler } from './middleware/errorHandler';
 const app = express();
 
 app.use(cors({ origin: config.frontendUrl, credentials: true }));
-app.use(express.json());
+// Default limit is 100 KB — too small for base64 avatar uploads (up to ~280 KB)
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'openremit-backend' });

@@ -1,13 +1,12 @@
-import { api, Transaction } from '../api';
+import { api } from '../api';
 import { escapeHtml } from '../escape';
-
-function fmt(value: string | null, assetCode: string, assetScale: number): string {
-  if (!value) return '—';
-  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
+function fmt(value, assetCode, assetScale) {
+    if (!value)
+        return '—';
+    return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
 }
-
-function txDetails(id: string, paymentUrl: string | null): string {
-  return `
+function txDetails(id, paymentUrl) {
+    return `
     <details class="tx-details">
       <summary class="tx-details-toggle">Transaction details</summary>
       <div class="tx-details-body">
@@ -25,9 +24,8 @@ function txDetails(id: string, paymentUrl: string | null): string {
     </details>
   `;
 }
-
-export function renderStatusView(container: HTMLElement, transactionId: string): void {
-  container.innerHTML = `
+export function renderStatusView(container, transactionId) {
+    container.innerHTML = `
     <div class="card send-card">
       <div class="send-header">
         <h2 class="send-title">Payment Status</h2>
@@ -38,23 +36,24 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
       </div>
     </div>
   `;
-
-  const content = container.querySelector<HTMLDivElement>('#status-content')!;
-  let attempts  = 0;
-  const MAX     = 30; // 30 × 2 s = 60 s timeout
-
-  async function poll() {
-    try {
-      const tx = await api.status(transactionId);
-      render(tx);
-      if (tx.status === 'COMPLETED' || tx.status === 'FAILED') return;
-    } catch {
-      // keep polling on transient network errors
-    }
-    if (++attempts < MAX) {
-      setTimeout(poll, 2000);
-    } else {
-      content.innerHTML = `
+    const content = container.querySelector('#status-content');
+    let attempts = 0;
+    const MAX = 30; // 30 × 2 s = 60 s timeout
+    async function poll() {
+        try {
+            const tx = await api.status(transactionId);
+            render(tx);
+            if (tx.status === 'COMPLETED' || tx.status === 'FAILED')
+                return;
+        }
+        catch {
+            // keep polling on transient network errors
+        }
+        if (++attempts < MAX) {
+            setTimeout(poll, 2000);
+        }
+        else {
+            content.innerHTML = `
         <div class="status-terminal">
           <div class="badge badge-danger">Timed out</div>
           <p class="muted">Could not confirm payment after 60 seconds.</p>
@@ -62,16 +61,14 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
           <a href="#/remit" class="btn btn-secondary">Start Over</a>
         </div>
       `;
+        }
     }
-  }
-
-  function render(tx: Transaction) {
-    // The receiver's currency may differ from the sender's (cross-currency payment)
-    const receiveCode  = tx.receiveAssetCode  ?? tx.assetCode;
-    const receiveScale = tx.receiveAssetScale ?? tx.assetScale;
-
-    if (tx.status === 'COMPLETED') {
-      content.innerHTML = `
+    function render(tx) {
+        // The receiver's currency may differ from the sender's (cross-currency payment)
+        const receiveCode = tx.receiveAssetCode ?? tx.assetCode;
+        const receiveScale = tx.receiveAssetScale ?? tx.assetScale;
+        if (tx.status === 'COMPLETED') {
+            content.innerHTML = `
         <div class="status-terminal">
           <div class="status-success-row">
             <div class="status-success-icon">✓</div>
@@ -97,8 +94,9 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
           <a href="#/remit" class="btn btn-africa-primary">New Payment</a>
         </div>
       `;
-    } else if (tx.status === 'FAILED') {
-      content.innerHTML = `
+        }
+        else if (tx.status === 'FAILED') {
+            content.innerHTML = `
         <div class="status-terminal">
           <div class="badge badge-danger">Failed</div>
           <div class="error-msg">${escapeHtml(tx.errorMessage ?? 'An unknown error occurred.')}</div>
@@ -106,13 +104,13 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
           <a href="#/remit" class="btn btn-secondary">Try Again</a>
         </div>
       `;
-    } else {
-      content.innerHTML = `
+        }
+        else {
+            content.innerHTML = `
         <div class="spinner"></div>
         <p class="muted">Status: <strong>${tx.status}</strong> — waiting for confirmation…</p>
       `;
+        }
     }
-  }
-
-  poll();
+    poll();
 }

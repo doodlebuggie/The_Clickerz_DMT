@@ -1,4 +1,5 @@
 import { api, PublicProfile, SharedTransaction } from '../api';
+import { escapeHtml } from '../escape';
 
 function initials(name: string): string {
   return name
@@ -52,17 +53,19 @@ export async function renderPublicProfileView(container: HTMLElement, userId: st
 
   const { user, sharedTransactions } = data;
 
-  const avatarEl = user.avatar
-    ? `<img class="pub-profile-avatar" src="${user.avatar}" alt="${user.displayName}" />`
-    : `<div class="pub-profile-avatar pub-profile-avatar-placeholder">${initials(user.displayName)}</div>`;
+  const safeName = escapeHtml(user.displayName);
 
-  const walletDisplay = user.walletAddress ? formatPointer(user.walletAddress) : 'No wallet set';
+  const avatarEl = user.avatar
+    ? `<img class="pub-profile-avatar" src="${escapeHtml(user.avatar)}" alt="${safeName}" />`
+    : `<div class="pub-profile-avatar pub-profile-avatar-placeholder">${escapeHtml(initials(user.displayName))}</div>`;
+
+  const walletDisplay = user.walletAddress ? escapeHtml(formatPointer(user.walletAddress)) : 'No wallet set';
 
   const txRows = sharedTransactions.map(tx => {
     const dir = direction(tx, user.walletAddress ?? '');
     const dirLabel = dir === 'sent'
-      ? `<span class="dir-badge dir-sent">You &#8594; ${user.displayName}</span>`
-      : `<span class="dir-badge dir-received">${user.displayName} &#8594; You</span>`;
+      ? `<span class="dir-badge dir-sent">You &#8594; ${safeName}</span>`
+      : `<span class="dir-badge dir-received">${safeName} &#8594; You</span>`;
     return `
       <tr>
         <td class="history-date-cell">${formatDate(tx.createdAt)}</td>
@@ -95,7 +98,7 @@ export async function renderPublicProfileView(container: HTMLElement, userId: st
         <div class="pub-profile-header">
           ${avatarEl}
           <div class="pub-profile-info">
-            <h2 class="pub-profile-name">${user.displayName}</h2>
+            <h2 class="pub-profile-name">${safeName}</h2>
             <p class="muted" style="font-size:0.8125rem;word-break:break-all;">${walletDisplay}</p>
           </div>
         </div>

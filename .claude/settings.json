@@ -12,7 +12,26 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\marcl\\\\OneDrive\\\\Desktop\\\\University\\\\Masters\\\\TA\\\\ILF_Hackathon\\\\OpenRemit\" -Force)",
       "Bash(Select-Object FullName)",
       "Bash(Format-Table -HideTableHeaders)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(cd \"/c/Users/marcl/OneDrive/Desktop/University/Masters/TA/ILF_Hackathon/OpenRemit\" && grep -rn \"isFinalizedGrant\" node_modules/@interledger/open-payments/dist/index.d.ts node_modules/@interledger/open-payments/dist/types.d.ts 2>/dev/null | head; ls backend/tsconfig.json frontend/tsconfig.json 2>/dev/null)",
+      "Read(//c/c/Users/marcl/OneDrive/Desktop/University/Masters/TA/ILF_Hackathon/OpenRemit/node_modules/@interledger/open-payments/dist/**)",
+      "Bash(python -c \"import json;d=json.load\\(open\\('node_modules/@libsql/client/package.json'\\)\\);print\\(json.dumps\\({k:d.get\\(k\\) for k in ['type','main','module','exports']},indent=1\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./node_modules/@libsql/client/package.json'\\);console.log\\(JSON.stringify\\({type:d.type,main:d.main,exports:d.exports},null,1\\)\\)\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(ls .claude/)",
+      "Bash(ls .claude/skills)",
+      "Bash(which chromium-cli *)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(curl -s -o /dev/null -w \"frontend: %{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(mkdir -p /tmp/openremit-shots)",
+      "Read(//tmp/**)",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" --headless --disable-gpu --window-size=520,1000 --virtual-time-budget=6000 --screenshot=home-public.png \"http://localhost:5173/#/\")",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" --headless --disable-gpu --window-size=520,1000 --virtual-time-budget=6000 --screenshot=login.png \"http://localhost:5173/#/login\")",
+      "PowerShell($shots=\"$env:TEMP\\\\openremit-shots\"; New-Item -ItemType Directory -Force $shots | Out-Null; & \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\" --headless=new --disable-gpu --window-size=520,1000 --virtual-time-budget=6000 --screenshot=\"$shots\\\\home-public.png\" \"http://localhost:5173/#/\" 2>$null | Out-Null; Start-Sleep 2; Get-ChildItem $shots)",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/signup -H \"Content-Type: application/json\" -d '{\"displayName\":\"Audit Tester\",\"email\":\"audit-tester@example.com\",\"password\":\"test1234\"}')",
+      "PowerShell($tok=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMxNTI1NDQ0LWRlNDQtNDlmOC05NTVjLWQwYjQxODE1NTBiOCIsImVtYWlsIjoiYXVkaXQtdGVzdGVyQGV4YW1wbGUuY29tIiwiZGlzcGxheU5hbWUiOiJBdWRpdCBUZXN0ZXIiLCJpYXQiOjE3ODEyNzkxNDIsImV4cCI6MTc4MTg4Mzk0Mn0.tT5T4FV73-usB6XtgTe-5z56sXK6BNEvupwag4tSX2A\"; $shots=\"$env:TEMP\\\\openremit-shots\"; & \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\" --headless=new --disable-gpu --no-first-run --user-data-dir=\"$env:TEMP\\\\edge-shot-profile\" --window-size=520,1100 --virtual-time-budget=8000 --screenshot=\"$shots\\\\home.png\" \"http://localhost:5173/__shot.html?t=$tok`&r=/\" ; Start-Sleep 2; Get-ChildItem $shots | Select-Object Name,Length)",
+      "PowerShell(Start-Sleep 4; Get-ChildItem \"$env:TEMP\\\\openremit-shots\" | Select-Object Name,Length)"
     ]
   }
 }
