@@ -7,6 +7,7 @@ import { renderSignupView }  from './views/signupView';
 import { renderProfileView } from './views/profileView';
 import { renderHistoryView } from './views/historyView';
 import { renderQuoteView }   from './views/quoteView';
+import { renderReceiveView } from './views/receiveView';
 import { renderConsentView } from './views/consentView';
 import { renderStatusView }        from './views/statusView';
 import { renderPublicProfileView } from './views/publicProfileView';
@@ -114,6 +115,10 @@ async function route(): Promise<void> {
   if (path === '/remit') {
     pendingQuote = null;
     await showRemit(cachedUser);
+    return;
+  }
+  if (path === '/receive') {
+    renderReceiveView(view, cachedUser);
     return;
   }
   if (path === '/history') {

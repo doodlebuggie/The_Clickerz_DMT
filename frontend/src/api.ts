@@ -103,6 +103,29 @@ export interface SharedTransaction {
   createdAt:             string;
 }
 
+/** One payment request ("ask"). counterpart = the other party:
+ *  for incoming asks the requester (who gets paid), for outgoing asks the payer. */
+export interface PaymentRequestEntry {
+  id:          string;
+  paymentType: PaymentType;
+  /** Smallest asset unit. FIXED_SEND: payer's currency; FIXED_RECEIVE: requester's. */
+  amount:      string;
+  assetCode:   string;
+  assetScale:  number;
+  note:        string | null;
+  status:      'PENDING' | 'COMPLETED' | 'DECLINED' | 'CANCELLED';
+  createdAt:   string;
+  counterpartId:     string;
+  counterpartName:   string;
+  counterpartAvatar: string | null;
+  counterpartWallet: string | null;
+}
+
+export interface PaymentRequestList {
+  incoming: PaymentRequestEntry[]; // asks addressed to me — I would pay
+  outgoing: PaymentRequestEntry[]; // asks I created — I get paid
+}
+
 export interface PublicProfile {
   user: {
     id:            string;
@@ -174,6 +197,20 @@ export const api = {
       get<UserSearchResult[]>(`/api/users/search?q=${encodeURIComponent(q)}`, true),
     getProfile: (id: string) =>
       get<PublicProfile>(`/api/users/${encodeURIComponent(id)}`, true),
+  },
+
+  requests: {
+    create: (body: { payerId: string; paymentType: PaymentType; amount: string; note?: string }) =>
+      post<{ id: string; status: 'PENDING' }>('/api/requests', body, true),
+    list: () =>
+      get<PaymentRequestList>('/api/requests', true),
+    /** Returns the same shape as quote() — feed it into the consent flow. */
+    fulfill: (id: string) =>
+      post<QuoteResponse>(`/api/requests/${encodeURIComponent(id)}/fulfill`, {}, true),
+    decline: (id: string) =>
+      post<{ status: 'DECLINED' }>(`/api/requests/${encodeURIComponent(id)}/decline`, {}, true),
+    cancel: (id: string) =>
+      post<{ status: 'CANCELLED' }>(`/api/requests/${encodeURIComponent(id)}/cancel`, {}, true),
   },
 
   walletInfo: (url: string) =>

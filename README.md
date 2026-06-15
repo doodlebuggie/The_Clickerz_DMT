@@ -106,6 +106,13 @@ Open [http://localhost:5173](http://localhost:5173).
 - `GET /api/users/search?q=…` — find recipients by display name
 - `GET /api/users/:id` — public profile + transactions shared with the current user
 
+**Payment requests ("asks")** — the pull side of payments (all require a `Bearer` token):
+
+- `POST /api/requests` — ask another user to send you money (`FIXED_SEND` = they send exactly X in *their* currency; `FIXED_RECEIVE` = you receive exactly X in *yours*). No Open Payments resources are created yet — quotes and incoming payments expire, so the OP flow runs fresh at fulfilment.
+- `GET /api/requests` — `{ incoming, outgoing }` asks for the current user
+- `POST /api/requests/:id/fulfill` — payer accepts: runs the shared quote flow (`backend/src/lib/quoteFlow.ts`) and returns the same shape as `/api/remit/quote`, so the frontend continues into the normal consent → callback pipeline; `/api/callback` marks the ask COMPLETED when the payment succeeds
+- `POST /api/requests/:id/decline` (payer), `POST /api/requests/:id/cancel` (requester)
+
 ---
 
 ## Architecture at a Glance
@@ -184,7 +191,7 @@ const final = await client.grant.continue({ url: pending.continue.uri, accessTok
 await client.outgoingPayment.create({ url: sendingWallet.resourceServer, accessToken: final.access_token.value }, { walletAddress: sendingWallet.id, quoteId: quote.id });
 ```
 
-**Database:** Two tables in `backend/src/db/schema.ts`: `users` (JWT auth via bcrypt password hash, optional wallet address + avatar) and `transactions`. Transaction statuses: `PENDING → AWAITING_GRANT → COMPLETED | FAILED`. The `grantContinueUri`, `grantContinueToken`, and `grantInteractNonce` columns persist the GNAP continuation details between the `/consent` and `/callback` requests.
+**Database:** Three tables in `backend/src/db/schema.ts`: `users` (JWT auth via bcrypt password hash, optional wallet address + avatar), `transactions`, and `payment_requests` (asks: `PENDING → COMPLETED | DECLINED | CANCELLED`; a failed payment leaves the ask PENDING for retry). Transaction statuses: `PENDING → AWAITING_GRANT → COMPLETED | FAILED`. The `grantContinueUri`, `grantContinueToken`, and `grantInteractNonce` columns persist the GNAP continuation details between the `/consent` and `/callback` requests.
 
 **Auth:** `POST /api/auth/signup` / `login` return `{ token, user }`. The frontend stores the JWT in localStorage (`frontend/src/auth.ts`) and sends it as a `Bearer` header (`frontend/src/api.ts`). Protected routes use the `requireAuth` middleware, which sets `req.user`.
 

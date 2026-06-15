@@ -4,7 +4,8 @@ import { eq, ne, and, desc } from 'drizzle-orm';
 import { isPendingGrant } from '@interledger/open-payments';
 import { db } from '../db';
 import { transactions, users } from '../db/schema';
-import { getClient, normaliseWalletAddress, isFinalizedGrant } from '../lib/openPayments';
+import { getClient, normaliseWalletAddress } from '../lib/openPayments';
+import { createQuoteTransaction } from '../lib/quoteFlow';
 import { config } from '../config';
 import { requireAuth } from '../middleware/requireAuth';
 
@@ -33,13 +34,9 @@ remitRouter.get('/wallet-info', requireAuth, async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/remit/quote
 //
-// Steps:
-//   1. Resolve both wallet addresses → authServer / resourceServer URLs
-//   2. Non-interactive incoming-payment grant on receiver's auth server
-//   3. Create incoming payment on receiver's wallet
-//   4. Non-interactive quote grant on sender's auth server
-//   5. Create quote on sender's wallet
-//   6. Persist transaction row (status=PENDING)
+// Validates input, then runs the shared quote flow (lib/quoteFlow.ts):
+//   resolve wallets → incoming-payment grant → incoming payment →
+//   quote grant → quote → persist transaction (status=PENDING)
 // ─────────────────────────────────────────────────────────────────────────────
 remitRouter.post('/quote', requireAuth, async (req, res, next) => {
   try {
@@ -57,121 +54,15 @@ remitRouter.post('/quote', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'paymentType must be FIXED_SEND or FIXED_RECEIVE' });
     }
 
-    const senderUrl   = normaliseWalletAddress(senderWalletAddress);
-    const receiverUrl = normaliseWalletAddress(receiverWalletAddress);
-    const client      = await getClient();
-    const fixedSend   = paymentType === 'FIXED_SEND';
-
-    // Step 1: Resolve both wallet addresses in parallel
-    const [sendingWallet, receivingWallet] = await Promise.all([
-      client.walletAddress.get({ url: senderUrl }),
-      client.walletAddress.get({ url: receiverUrl }),
-    ]);
-
-    // Step 2: Non-interactive incoming-payment grant (receiver's auth server)
-    const incomingPaymentGrant = await client.grant.request(
-      { url: receivingWallet.authServer },
-      {
-        access_token: {
-          access: [{ type: 'incoming-payment', actions: ['create', 'read', 'complete'] }],
-        },
-      }
-    );
-    if (!isFinalizedGrant(incomingPaymentGrant)) {
-      throw new Error('Expected non-interactive incoming-payment grant');
-    }
-
-    // Step 3: Create incoming payment on receiver's wallet
-    //   FIXED_RECEIVE → set incomingAmount so the receiver gets exactly `amount`
-    //   FIXED_SEND    → open-ended (no incomingAmount); quote drives the final receive amount
-    const incomingPayment = fixedSend
-      ? await client.incomingPayment.create(
-          { url: receivingWallet.resourceServer, accessToken: incomingPaymentGrant.access_token.value },
-          { walletAddress: receivingWallet.id }
-        )
-      : await client.incomingPayment.create(
-          { url: receivingWallet.resourceServer, accessToken: incomingPaymentGrant.access_token.value },
-          {
-            walletAddress:  receivingWallet.id,
-            incomingAmount: {
-              value:      amount,
-              assetCode:  receivingWallet.assetCode,
-              assetScale: receivingWallet.assetScale,
-            },
-          }
-        );
-
-    // Step 4: Non-interactive quote grant (sender's auth server)
-    const quoteGrant = await client.grant.request(
-      { url: sendingWallet.authServer },
-      {
-        access_token: {
-          access: [{ type: 'quote', actions: ['create', 'read'] }],
-        },
-      }
-    );
-    if (!isFinalizedGrant(quoteGrant)) {
-      throw new Error('Expected non-interactive quote grant');
-    }
-
-    // Step 5: Create quote on sender's wallet
-    //   receiver = incomingPayment.id (the full incoming payment URL)
-    //   FIXED_SEND → set debitAmount; FIXED_RECEIVE → omit (incomingAmount drives it)
-    const quote = fixedSend
-      ? await client.quote.create(
-          { url: sendingWallet.resourceServer, accessToken: quoteGrant.access_token.value },
-          {
-            walletAddress: sendingWallet.id,
-            receiver:      incomingPayment.id,
-            method:        'ilp',
-            debitAmount: {
-              value:      amount,
-              assetCode:  sendingWallet.assetCode,
-              assetScale: sendingWallet.assetScale,
-            },
-          }
-        )
-      : await client.quote.create(
-          { url: sendingWallet.resourceServer, accessToken: quoteGrant.access_token.value },
-          {
-            walletAddress: sendingWallet.id,
-            receiver:      incomingPayment.id,
-            method:        'ilp',
-          }
-        );
-
-    // Step 6: Persist transaction
-    const id  = crypto.randomUUID();
-    const now = new Date();
-
-    await db.insert(transactions).values({
-      id,
-      status:                'PENDING',
+    const result = await createQuoteTransaction({
+      senderWalletAddress,
+      receiverWalletAddress,
+      amount,
       paymentType,
-      senderWalletAddress:   senderUrl,
-      receiverWalletAddress: receiverUrl,
-      debitAmount:           quote.debitAmount.value,
-      receiveAmount:         quote.receiveAmount.value,
-      assetCode:             quote.debitAmount.assetCode,
-      assetScale:            quote.debitAmount.assetScale,
-      receiveAssetCode:      quote.receiveAmount.assetCode,
-      receiveAssetScale:     quote.receiveAmount.assetScale,
-      incomingPaymentUrl:    incomingPayment.id,
-      quoteUrl:              quote.id,
-      userId:                req.user!.id,
-      createdAt:             now,
-      updatedAt:             now,
+      userId: req.user!.id,
     });
 
-    res.json({
-      transactionId: id,
-      paymentType,
-      quote: {
-        debitAmount:   quote.debitAmount,
-        receiveAmount: quote.receiveAmount,
-        expiresAt:     quote.expiresAt,
-      },
-    });
+    res.json(result);
   } catch (err) {
     next(err);
   }

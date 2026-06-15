@@ -45,7 +45,11 @@
       "Bash(rm -f frontend/src/*.js frontend/src/views/*.js frontend/__shot.html)",
       "Bash(rm -rf frontend/dist backend/dist)",
       "Read(//c/c/Users/marcl/OneDrive/Desktop/University/Masters/TA/ILF_Hackathon/OpenRemit/frontend/**)",
-      "PowerShell(Get-NetTCPConnection -LocalPort 5173,5174,3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force -ErrorAction Stop; \"killed PID $\\($_.OwningProcess\\)\" } catch {} }; \\(Get-NetTCPConnection -LocalPort 5173,5174,3001 -State Listen -ErrorAction SilentlyContinue\\).Count)"
+      "PowerShell(Get-NetTCPConnection -LocalPort 5173,5174,3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force -ErrorAction Stop; \"killed PID $\\($_.OwningProcess\\)\" } catch {} }; \\(Get-NetTCPConnection -LocalPort 5173,5174,3001 -State Listen -ErrorAction SilentlyContinue\\).Count)",
+      "Bash(cd \"/c/Users/marcl/OneDrive/Desktop/University/Masters/TA/ILF_Hackathon/OpenRemit\" && sed -i 's/formatPointer\\(tx.counterpartyWallet\\)/toPointer\\(tx.counterpartyWallet\\)/g' frontend/src/views/historyView.ts && grep -c \"toPointer\" frontend/src/views/historyView.ts)"
+    ],
+    "additionalDirectories": [
+      "c:\\c\\Users\\marcl\\OneDrive\\Desktop\\University\\Masters\\TA\\ILF_Hackathon\\OpenRemit\\frontend\\src\\views"
     ]
   }
 }

@@ -2,6 +2,7 @@ import { api, User } from '../api';
 import { clearToken } from '../auth';
 import { escapeHtml } from '../escape';
 import { presetRecipient } from './quoteView';
+import { toPointer } from '../pointer';
 
 export async function renderProfileView(container: HTMLElement): Promise<void> {
   container.innerHTML = `<div class="card"><p class="muted">Loading profile…</p></div>`;
@@ -47,7 +48,7 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
           <label for="p-wallet">Wallet address</label>
           <input id="p-wallet" name="walletAddress" type="text" class="input"
             placeholder="$ilp.interledger-test.dev/your-handle"
-            value="${escapeHtml(user.walletAddress ?? '')}" />
+            value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" />
         </div>
         <div class="field">
           <label for="p-password">New password <span class="muted">(leave blank to keep current)</span></label>

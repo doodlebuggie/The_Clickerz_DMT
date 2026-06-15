@@ -5,6 +5,7 @@ import { remitRouter } from './routes/remit';
 import { callbackRouter } from './routes/callback';
 import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
+import { requestsRouter } from './routes/requests';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -19,6 +20,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/requests', requestsRouter);
 app.use('/api/remit', remitRouter);
 app.use('/api/callback', callbackRouter);
 

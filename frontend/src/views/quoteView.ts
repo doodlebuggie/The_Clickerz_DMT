@@ -1,18 +1,33 @@
-import { api, QuoteResponse, User, UserSearchResult, WalletInfo } from '../api';
+import { api, QuoteResponse, User, UserSearchResult, WalletInfo, PaymentRequestEntry } from '../api';
 import { escapeHtml } from '../escape';
+import { toPointer } from '../pointer';
+import { avatarHtml } from '../avatar';
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('');
+function fmt(value: string, assetCode: string, assetScale: number): string {
+  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
 }
 
-function avatarHtml(result: UserSearchResult, sizeClass: string): string {
-  return result.avatar
-    ? `<img class="${sizeClass}" src="${escapeHtml(result.avatar)}" alt="${escapeHtml(result.displayName)}" />`
-    : `<div class="${sizeClass} ${sizeClass}-placeholder">${escapeHtml(initials(result.displayName))}</div>`;
+// One row in the "Requests for you" card. The counterpart is the requester
+// (who gets paid); the current user is the payer.
+function incomingAskHtml(ask: PaymentRequestEntry): string {
+  const amount = fmt(ask.amount, ask.assetCode, ask.assetScale);
+  const line = ask.paymentType === 'FIXED_SEND'
+    ? `<strong>${escapeHtml(ask.counterpartName)}</strong> asks you to send <strong>${amount}</strong>`
+    : `<strong>${escapeHtml(ask.counterpartName)}</strong> asks for enough that they receive <strong>${amount}</strong>`;
+
+  return `
+    <li class="request-item">
+      ${avatarHtml({ displayName: ask.counterpartName, avatar: ask.counterpartAvatar }, 'request-avatar')}
+      <div class="request-info">
+        <span class="request-line">${line}</span>
+        ${ask.note ? `<span class="request-note">"${escapeHtml(ask.note)}"</span>` : ''}
+      </div>
+      <div class="request-actions">
+        <button class="btn btn-africa-primary btn-small" data-pay="${ask.id}">Pay</button>
+        <button class="btn btn-secondary btn-small" data-decline="${ask.id}">Decline</button>
+      </div>
+    </li>
+  `;
 }
 
 // Module state: survives view re-renders, so the chosen recipient is still
@@ -32,6 +47,7 @@ export function renderQuoteView(
   const noWallet = !user.walletAddress;
 
   container.innerHTML = `
+    <div id="incoming-requests"></div>
     <div class="card send-card">
       <div class="send-header">
         <h2 class="send-title">Send Money</h2>
@@ -48,7 +64,7 @@ export function renderQuoteView(
       <form id="quote-form" class="send-form" novalidate>
         <div class="field">
           <label>Your Payment Pointer</label>
-          <input type="text" class="input" value="${escapeHtml(user.walletAddress ?? '')}" readonly disabled />
+          <input type="text" class="input" value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" readonly disabled />
         </div>
 
         <hr class="divider" />
@@ -142,7 +158,7 @@ export function renderQuoteView(
       ${avatarHtml(result, 'recipient-avatar')}
       <div class="recipient-info">
         <span class="recipient-name">${escapeHtml(result.displayName)}</span>
-        <span class="recipient-wallet">${escapeHtml(result.walletAddress ?? 'no wallet')}</span>
+        <span class="recipient-wallet">${escapeHtml(result.walletAddress ? toPointer(result.walletAddress) : 'no wallet')}</span>
       </div>
       <span class="currency-tag" id="recipient-currency-tag">${escapeHtml(currency ?? '…')}</span>
       <a class="recipient-profile-link" href="#/user/${result.id}" title="View profile">Profile</a>
@@ -201,7 +217,7 @@ export function renderQuoteView(
             ${avatarHtml(r, 'search-result-avatar')}
             <span class="search-result-main">
               <span class="search-result-name">${escapeHtml(r.displayName)}</span>
-              <span class="search-result-pointer">${r.walletAddress ? escapeHtml(r.walletAddress) : 'no wallet'}</span>
+              <span class="search-result-pointer">${r.walletAddress ? escapeHtml(toPointer(r.walletAddress)) : 'no wallet'}</span>
             </span>
             <a class="search-result-profile" href="#/user/${encodeURIComponent(r.id)}">Profile</a>
           `;
@@ -227,6 +243,72 @@ export function renderQuoteView(
 
   // Restore the recipient chosen before navigating away (e.g. to their profile)
   if (selectedRecipient) void selectUser(selectedRecipient);
+
+  // ─── Requests for you ───────────────────────────────────────────────────────
+  // Pending asks where the current user is the payer. "Pay" fulfils the ask:
+  // the backend quotes it and returns the same shape as a direct send, so the
+  // normal consent → callback flow takes over via onQuote.
+
+  const requestsHost = container.querySelector<HTMLDivElement>('#incoming-requests')!;
+
+  async function loadIncomingRequests(): Promise<void> {
+    let pending: PaymentRequestEntry[];
+    try {
+      const { incoming } = await api.requests.list();
+      pending = incoming.filter(r => r.status === 'PENDING');
+    } catch {
+      return; // non-critical — the send form still works
+    }
+    if (pending.length === 0) {
+      requestsHost.innerHTML = '';
+      return;
+    }
+
+    requestsHost.innerHTML = `
+      <div class="card requests-card">
+        <h3 class="requests-title">Requests for you</h3>
+        <div id="requests-error" class="error-msg" hidden></div>
+        <ul class="request-list">
+          ${pending.map(incomingAskHtml).join('')}
+        </ul>
+      </div>
+    `;
+
+    const reqErr     = requestsHost.querySelector<HTMLDivElement>('#requests-error')!;
+    const allButtons = () => requestsHost.querySelectorAll<HTMLButtonElement>('button');
+
+    requestsHost.querySelectorAll<HTMLButtonElement>('[data-pay]').forEach(payBtn => {
+      payBtn.addEventListener('click', async () => {
+        allButtons().forEach(b => { b.disabled = true; });
+        payBtn.textContent = 'Quoting…';
+        reqErr.hidden      = true;
+        try {
+          const result = await api.requests.fulfill(payBtn.dataset.pay!);
+          onQuote(result); // → consent view, then the GNAP redirect flow
+        } catch (err: unknown) {
+          reqErr.textContent = err instanceof Error ? err.message : String(err);
+          reqErr.hidden      = false;
+          allButtons().forEach(b => { b.disabled = false; });
+          payBtn.textContent = 'Pay';
+        }
+      });
+    });
+
+    requestsHost.querySelectorAll<HTMLButtonElement>('[data-decline]').forEach(declineBtn => {
+      declineBtn.addEventListener('click', async () => {
+        declineBtn.disabled = true;
+        try {
+          await api.requests.decline(declineBtn.dataset.decline!);
+        } catch {
+          declineBtn.disabled = false;
+          return;
+        }
+        loadIncomingRequests();
+      });
+    });
+  }
+
+  void loadIncomingRequests();
 
   // Close the dropdown when clicking outside. The listener removes itself once
   // this view has been replaced, so re-renders don't pile up stale handlers.

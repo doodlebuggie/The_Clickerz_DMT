@@ -54,3 +54,37 @@ export const transactions = sqliteTable('transactions', {
 
 export type Transaction      = typeof transactions.$inferSelect;
 export type NewTransaction   = typeof transactions.$inferInsert;
+
+// A payment request ("ask"): the requester asks the payer to send them money.
+// Pure DB record — no Open Payments resources exist until the payer fulfils it
+// (quotes and incoming payments expire; an ask can sit for days).
+export const paymentRequests = sqliteTable('payment_requests', {
+  id:            text('id').primaryKey(),               // crypto.randomUUID()
+
+  requesterId:   text('requester_id').notNull().references(() => users.id), // who gets paid
+  payerId:       text('payer_id').notNull().references(() => users.id),     // who is asked to pay
+
+  // FIXED_SEND:    payer sends exactly `amount` (denominated in the payer's currency)
+  // FIXED_RECEIVE: requester receives exactly `amount` (denominated in the requester's currency)
+  paymentType:   text('payment_type').notNull(),
+
+  amount:        text('amount').notNull(),               // smallest asset unit, string
+  assetCode:     text('asset_code').notNull(),           // currency the amount is denominated in
+  assetScale:    integer('asset_scale').notNull(),
+
+  note:          text('note'),                           // optional message to the payer
+
+  // PENDING → COMPLETED | DECLINED | CANCELLED.
+  // A failed payment leaves the ask PENDING so the payer can retry.
+  status:        text('status').notNull(),
+
+  // Set when the payer starts fulfilment; the /api/callback handler marks the
+  // ask COMPLETED when this transaction's outgoing payment succeeds.
+  transactionId: text('transaction_id').references(() => transactions.id),
+
+  createdAt:     integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt:     integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type PaymentRequest    = typeof paymentRequests.$inferSelect;
+export type NewPaymentRequest = typeof paymentRequests.$inferInsert;

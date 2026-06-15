@@ -1,14 +1,8 @@
 import { api, PublicProfile, SharedTransaction } from '../api';
 import { escapeHtml } from '../escape';
 import { presetRecipient } from './quoteView';
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('');
-}
+import { toPointer } from '../pointer';
+import { avatarHtml } from '../avatar';
 
 function direction(tx: SharedTransaction, otherWallet: string): 'sent' | 'received' {
   return tx.receiverWalletAddress === otherWallet ? 'sent' : 'received';
@@ -36,11 +30,6 @@ function formatStatus(status: string): string {
   return labels[status] ?? status;
 }
 
-function formatPointer(url: string): string {
-  if (url.startsWith('$')) return url;
-  return url.replace(/^https?:\/\//, '$');
-}
-
 export async function renderPublicProfileView(container: HTMLElement, userId: string): Promise<void> {
   container.innerHTML = `<div class="card"><p class="muted">Loading profile…</p></div>`;
 
@@ -56,11 +45,9 @@ export async function renderPublicProfileView(container: HTMLElement, userId: st
 
   const safeName = escapeHtml(user.displayName);
 
-  const avatarEl = user.avatar
-    ? `<img class="pub-profile-avatar" src="${escapeHtml(user.avatar)}" alt="${safeName}" />`
-    : `<div class="pub-profile-avatar pub-profile-avatar-placeholder">${escapeHtml(initials(user.displayName))}</div>`;
+  const avatarEl = avatarHtml(user, 'pub-profile-avatar');
 
-  const walletDisplay = user.walletAddress ? escapeHtml(formatPointer(user.walletAddress)) : 'No wallet set';
+  const walletDisplay = user.walletAddress ? escapeHtml(toPointer(user.walletAddress)) : 'No wallet set';
 
   const txRows = sharedTransactions.map(tx => {
     const dir = direction(tx, user.walletAddress ?? '');

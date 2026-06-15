@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
-import { transactions } from '../db/schema';
+import { transactions, paymentRequests } from '../db/schema';
 import { getClient, isFinalizedGrant } from '../lib/openPayments';
 import { config } from '../config';
 
@@ -82,6 +82,16 @@ callbackRouter.get('/', async (req, res) => {
         updatedAt:          new Date(),
       })
       .where(eq(transactions.id, transactionId));
+
+    // If this payment fulfils a payment request, close the request too.
+    // (On failure the request stays PENDING so the payer can retry.)
+    await db
+      .update(paymentRequests)
+      .set({ status: 'COMPLETED', updatedAt: new Date() })
+      .where(and(
+        eq(paymentRequests.transactionId, transactionId),
+        eq(paymentRequests.status, 'PENDING'),
+      ));
 
     res.redirect(`${config.frontendUrl}?status=completed&id=${transactionId}`);
   } catch (err) {

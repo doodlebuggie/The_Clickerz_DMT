@@ -1,5 +1,6 @@
 import { api, HistoryEntry } from '../api';
 import { escapeHtml } from '../escape';
+import { toPointer } from '../pointer';
 
 // Sent payments show what left the wallet (debit, in the sender's currency);
 // received payments show what arrived (receive amount, in the receiver's currency).
@@ -16,11 +17,6 @@ function formatAmount(tx: HistoryEntry): string {
 
 function formatDate(ts: string): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function formatPointer(url: string): string {
-  if (url.startsWith('$')) return url;
-  return url.replace(/^https?:\/\//, '$');
 }
 
 function formatStatus(status: string): string {
@@ -77,11 +73,11 @@ export async function renderHistoryView(container: HTMLElement): Promise<void> {
                      ${tx.counterpartyId
                        ? `<a class="history-recip-link" href="#/user/${encodeURIComponent(tx.counterpartyId)}">
                             <div class="history-recip-name">${escapeHtml(tx.counterpartyName ?? '—')}</div>
-                            <div class="history-recip-pointer">${escapeHtml(formatPointer(tx.counterpartyWallet))}</div>
+                            <div class="history-recip-pointer">${escapeHtml(toPointer(tx.counterpartyWallet))}</div>
                           </a>`
                        : `<div>
                             <div class="history-recip-name">${escapeHtml(tx.counterpartyName ?? '—')}</div>
-                            <div class="history-recip-pointer">${escapeHtml(formatPointer(tx.counterpartyWallet))}</div>
+                            <div class="history-recip-pointer">${escapeHtml(toPointer(tx.counterpartyWallet))}</div>
                           </div>`
                      }
                    </td>
