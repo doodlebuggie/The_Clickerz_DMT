@@ -28,9 +28,7 @@ You can obtain test wallet credentials from the [Interledger Test Wallet](https:
    peer-to-peer payment you need a sending and a receiving wallet address; the client wallet
    address can be the sending one.
 2. Generate a **key pair** for your account (**Settings → Developer Keys → Add Key**). You'll get a **Key ID** and a **private key
-   file** (e.g. `private.key`). Keep the private key on the machine that runs the runner.
-3. The single-script reference this UI mirrors is [`example.ts`](example.ts), useful if you
-   want to see the same flow run headless in a terminal.
+   file** (e.g. `private.key`). Keep the private key on the machine that runs the backend.
 
 ### 3. Configure
 
@@ -92,9 +90,9 @@ Open [http://localhost:5173](http://localhost:5173).
 
 **Summary:**
 
-- `POST /api/remit/quote` — steps 1–5: resolve wallets, create incoming payment + quote
-- `POST /api/remit/consent` — step 6: request interactive outgoing grant, get interact URL
-- `GET /api/callback` — steps 7–8: continue grant, create outgoing payment
+- `POST /api/remit/quote` — resolve wallets, create incoming payment + quote
+- `POST /api/remit/consent` — request interactive outgoing grant, get interact URL
+- `GET /api/callback` — continue grant, create outgoing payment
 - `GET /api/remit/status/:id` — poll current transaction state
 - `GET /api/remit/history` — the current user's sent payments
 - `GET /api/remit/wallet-info?url=…` — resolve a wallet's currency before quoting

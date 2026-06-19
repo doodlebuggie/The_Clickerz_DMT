@@ -98,6 +98,9 @@ export interface SharedTransaction {
   receiveAmount:         string | null;
   assetCode:             string;
   assetScale:            number;
+  // Receiver-side currency — may differ when the payment crosses currencies
+  receiveAssetCode:      string | null;
+  receiveAssetScale:     number | null;
   outgoingPaymentUrl:    string | null;
   errorMessage:          string | null;
   createdAt:             string;

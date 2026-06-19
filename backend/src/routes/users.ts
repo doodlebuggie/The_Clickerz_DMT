@@ -58,6 +58,8 @@ usersRouter.get('/:id', requireAuth, async (req, res, next) => {
             receiveAmount:         transactions.receiveAmount,
             assetCode:             transactions.assetCode,
             assetScale:            transactions.assetScale,
+            receiveAssetCode:      transactions.receiveAssetCode,
+            receiveAssetScale:     transactions.receiveAssetScale,
             outgoingPaymentUrl:    transactions.outgoingPaymentUrl,
             errorMessage:          transactions.errorMessage,
             createdAt:             transactions.createdAt,

@@ -21,8 +21,3 @@ backend/drizzle/
 # OS
 .DS_Store
 Thumbs.db
-
-
-example.ts
-
-TODO.md

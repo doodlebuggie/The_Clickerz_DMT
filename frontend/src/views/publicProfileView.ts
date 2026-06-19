@@ -9,11 +9,14 @@ function direction(tx: SharedTransaction, otherWallet: string): 'sent' | 'receiv
 }
 
 function formatAmount(tx: SharedTransaction, dir: 'sent' | 'received'): string {
-  const val    = dir === 'sent' ? (tx.debitAmount ?? tx.receiveAmount ?? '0')
-                                : (tx.receiveAmount ?? tx.debitAmount ?? '0');
-  const scale  = tx.assetScale ?? 2;
-  const amount = (Number(val) / Math.pow(10, scale)).toFixed(scale);
-  return `${amount} ${tx.assetCode}`;
+  // Sent shows the debit (sender's currency); received shows what arrived
+  // (receiver's currency, which may differ on a cross-currency payment).
+  const val   = dir === 'sent' ? (tx.debitAmount ?? tx.receiveAmount ?? '0')
+                               : (tx.receiveAmount ?? tx.debitAmount ?? '0');
+  const code  = dir === 'sent' ? tx.assetCode  : (tx.receiveAssetCode  ?? tx.assetCode);
+  const scale = dir === 'sent' ? tx.assetScale : (tx.receiveAssetScale ?? tx.assetScale);
+  const amount = (Number(val) / 10 ** scale).toFixed(scale);
+  return `${amount} ${code}`;
 }
 
 function formatDate(ts: string): string {
