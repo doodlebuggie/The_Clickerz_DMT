@@ -267,3 +267,8 @@ remitRouter.get('/history', requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+/*
+POST /remit/authorise — parent clicks "Authorise": calls createIncomingGrant, stores grant token, calls pinService.generatePin
+POST /remit/pay — internal helper, can just be the dropoff logic moved here if you'd rather keep payment logic centralized (optional — only do this if routes/trips.ts is getting too big)
+*/

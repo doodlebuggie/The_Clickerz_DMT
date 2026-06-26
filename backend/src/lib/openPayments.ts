@@ -34,3 +34,9 @@ export function isFinalizedGrant(
 ): grant is GrantWithAccessToken {
   return !isPendingGrant(grant) && isFinalizedGrantWithAccessToken(grant);
 }
+
+/*
+createIncomingGrant(parentWalletAddress, maxAmount, tripCount) → mom authorises, you get a grant token back
+createIncomingPayment(taxiWalletAddress, amount) → sets up the receiving side on the driver's wallet, returns a payment URL
+createOutgoingPayment(grantToken, incomingPaymentUrl, amount) → fires the actual transfer at drop-off
+*/
