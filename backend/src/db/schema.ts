@@ -161,3 +161,51 @@ export const postUnlocks = sqliteTable('post_unlocks', {
 
 export type PostUnlock    = typeof postUnlocks.$inferSelect;
 export type NewPostUnlock = typeof postUnlocks.$inferInsert;
+
+// define the scholars table
+export const scholars = sqliteTable('scholars',{
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  age: integer('age').notNull(),
+  school: text('school').notNull(),
+  parentId: text('parent_id').references(()=>users.id),
+  destination: text('destination').notNull(),
+  fareType: text('fare_type', { enum: ['fixed', 'variable']}).default('fixed').notNull(), //for now just fixed
+  fareAmount: integer('fareAmount').notNull(),
+  createdAt: integer('created_at').notNull(), // not sure what this does?
+});
+
+export type Scholar = typeof scholars.$inferSelect;
+export type NewScholar = typeof scholars.$inferInsert;
+
+// define the pins table
+export const pins = sqliteTable('pins',{
+  id: text('id').primaryKey(),
+  code: text('code', {length: 5}).notNull(), // 5 char string
+  scholarId: text('scholar_id').notNull().references(() => scholars.id, {onDelete: 'cascade'}), 
+  tripId: text('trip_Id').references(() => trips.id), 
+  status: text('status', { enum: ['unused', 'used', 'expired']}).default('unused').notNull(),
+  createdAt: integer('created_at').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+});
+
+export type Pin = typeof pins.$inferSelect;
+export type NewPin = typeof pins.$inferInsert;
+
+// define the trips table
+
+export const trips = sqliteTable('trips',{
+  id: text('id').primaryKey(),
+  scholarId: text('scholar_id').notNull().references(() => scholars.id, {onDelete: 'cascade'}), 
+  taxiDriverId: text('taxi_driver_id').references(()=>users.id),
+  status: text('status', { enum: ['pending', 'boarded', 'in_transit', 'dropped_off']}).default('pending').notNull(),
+  grantToken: text('grant_token'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export type Trip = typeof trips.$inferSelect;
+export type NewTrip= typeof trips.$inferInsert;
+
+// Also check if the users table has a walletAddress column. If not, add one
+//(string, nullable) — it's used by both parent and taxi driver accounts.
